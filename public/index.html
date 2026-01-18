@@ -4,151 +4,579 @@
   <meta charset="UTF-8">
   <title>Automatic HLS Downloader</title>
   <style>
+    @import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&display=swap');
+
+    :root {
+      --bg: #050910;
+      --panel: rgba(255, 255, 255, 0.04);
+      --border: rgba(255, 255, 255, 0.08);
+      --text: #e5e7eb;
+      --muted: #9ca3af;
+      --accent: #38bdf8;
+      --accent-2: #f59e0b;
+      --danger: #f87171;
+      --success: #34d399;
+      --shadow: 0 20px 80px rgba(0, 0, 0, 0.35);
+    }
+
+    * { box-sizing: border-box; }
+
     body {
-      background: #0f172a;
-      color: #e5e7eb;
-      font-family: Arial;
+      margin: 0;
+      min-height: 100vh;
+      font-family: 'Space Grotesk', 'Segoe UI', sans-serif;
+      background:
+        radial-gradient(120% 90% at 20% 20%, rgba(56, 189, 248, 0.08), transparent 45%),
+        radial-gradient(90% 80% at 80% 10%, rgba(245, 158, 11, 0.08), transparent 42%),
+        linear-gradient(180deg, #0b1020 0%, #050910 35%, #04070f 100%);
+      color: var(--text);
       display: flex;
       justify-content: center;
+      align-items: flex-start;
+      padding: 48px 20px 52px;
+    }
+
+    .shell {
+      width: min(1100px, 100%);
+      background: var(--panel);
+      border: 1px solid var(--border);
+      border-radius: 18px;
+      padding: 28px 28px 32px;
+      box-shadow: var(--shadow);
+      backdrop-filter: blur(10px);
+    }
+
+    .header {
+      display: flex;
+      gap: 18px;
+      justify-content: space-between;
+      align-items: flex-start;
+      flex-wrap: wrap;
+    }
+
+    .title {
+      margin: 0;
+      font-size: 28px;
+      letter-spacing: -0.02em;
+    }
+
+    .subtitle {
+      margin: 6px 0 0;
+      color: var(--muted);
+      max-width: 640px;
+      line-height: 1.6;
+    }
+
+    .pill {
+      display: inline-flex;
       align-items: center;
-      height: 100vh;
+      gap: 8px;
+      background: rgba(56, 189, 248, 0.12);
+      color: #7dd3fc;
+      border: 1px solid rgba(56, 189, 248, 0.3);
+      padding: 6px 10px;
+      border-radius: 999px;
+      font-size: 12px;
+      letter-spacing: 0.02em;
     }
-    .box {
-      background: #020617;
-      padding: 20px;
-      border-radius: 10px;
-      width: 450px;
+
+    .actions {
+      margin-top: 18px;
+      display: flex;
+      gap: 12px;
+      flex-wrap: wrap;
     }
-    input, button {
-      width: 100%;
-      padding: 10px;
-      margin-top: 10px;
+
+    .settings {
+      margin-top: 18px;
+      padding: 16px;
+      border-radius: 14px;
+      border: 1px solid var(--border);
+      background: rgba(255, 255, 255, 0.04);
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
     }
+
+    .settings-row {
+      display: flex;
+      gap: 10px;
+      align-items: center;
+      flex-wrap: wrap;
+    }
+
+    .settings-label {
+      font-weight: 600;
+      letter-spacing: 0.01em;
+    }
+
+    .settings-note {
+      color: var(--muted);
+      font-size: 13px;
+    }
+
+    .compact-input {
+      min-width: 260px;
+      flex: 1;
+    }
+
     button {
-      background: #2563eb;
-      color: white;
       border: none;
       cursor: pointer;
+      border-radius: 12px;
+      padding: 12px 16px;
+      font-size: 15px;
+      font-weight: 600;
+      transition: transform 0.08s ease, box-shadow 0.2s ease, background 0.2s ease, opacity 0.2s ease;
     }
-    .bar {
-      margin-top: 15px;
-      background: #1e293b;
-      border-radius: 8px;
+
+    button:active { transform: translateY(1px); }
+
+    .primary {
+      background: linear-gradient(120deg, #38bdf8, #14b8a6);
+      color: #04111f;
+      box-shadow: 0 12px 30px rgba(20, 184, 166, 0.25);
+    }
+
+    .primary:hover { box-shadow: 0 14px 34px rgba(56, 189, 248, 0.28); }
+
+    .ghost {
+      background: rgba(255, 255, 255, 0.06);
+      color: #e5e7eb;
+      border: 1px solid var(--border);
+    }
+
+    .ghost:hover { background: rgba(255, 255, 255, 0.1); }
+
+    .small { padding: 10px 14px; font-size: 14px; }
+
+    .queue {
+      margin-top: 20px;
+      display: flex;
+      flex-direction: column;
+      gap: 14px;
+    }
+
+    .job-card {
+      padding: 16px;
+      border-radius: 14px;
+      border: 1px solid var(--border);
+      background: linear-gradient(140deg, rgba(255, 255, 255, 0.05), rgba(255, 255, 255, 0.02));
+      box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.04);
+      position: relative;
       overflow: hidden;
-      height: 20px;
     }
-    .fill {
-      background: #22c55e;
-      height: 100%;
+
+    .job-top {
+      display: flex;
+      gap: 12px;
+      align-items: center;
+      flex-wrap: wrap;
+    }
+
+    .url-input {
+      flex: 1;
+      width: 100%;
+      padding: 12px 14px;
+      border-radius: 10px;
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      background: rgba(6, 11, 19, 0.7);
+      color: var(--text);
+      font-size: 15px;
+      outline: none;
+    }
+
+    .url-input:focus {
+      border-color: rgba(56, 189, 248, 0.6);
+      box-shadow: 0 0 0 3px rgba(56, 189, 248, 0.18);
+    }
+
+    .name-field { max-width: 240px; }
+
+    .progress-track {
+      margin-top: 12px;
+      width: 100%;
+      height: 8px;
+      border-radius: 10px;
+      background: rgba(255, 255, 255, 0.06);
+      overflow: hidden;
+    }
+
+    .progress-fill {
       width: 0%;
-      transition: width 0.2s;
+      height: 100%;
+      background: linear-gradient(90deg, #38bdf8, #f59e0b);
+      transition: width 0.25s ease;
+    }
+
+    .job-meta {
+      margin-top: 10px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      flex-wrap: wrap;
+    }
+
+    .status {
+      color: var(--muted);
+      font-size: 14px;
+    }
+
+    .status.active { color: #fbbf24; }
+    .status.done { color: var(--success); }
+    .status.error { color: var(--danger); }
+
+    .tag {
+      padding: 6px 10px;
+      border-radius: 10px;
+      background: rgba(255, 255, 255, 0.06);
+      color: #cbd5e1;
+      font-size: 13px;
+      border: 1px solid var(--border);
+    }
+
+    .cross-btn {
+      margin-left: auto;
+    }
+
+    .job-card.crossed {
+      opacity: 0.55;
+      filter: grayscale(1);
+    }
+
+    .job-card.crossed .status,
+    .job-card.crossed .tag {
+      text-decoration: line-through;
+    }
+
+    .hint {
+      margin-top: 18px;
+      color: var(--muted);
+      font-size: 13px;
+    }
+
+    @media (max-width: 720px) {
+      body { padding: 28px 14px; }
+      .shell { padding: 22px 18px; }
+      .job-top { flex-direction: column; align-items: stretch; }
+      .actions { flex-direction: column; }
+      button { width: 100%; justify-content: center; }
+      .small { width: auto; }
     }
   </style>
 </head>
 <body>
-  <div class="box">
-    <h2>Automatic HLS Downloader</h2>
-
-    <input id="url" placeholder="Paste video page URL here">
-    <button onclick="download()">Download</button>
-    <small style="color:#94a3b8;display:block;margin-top:6px;">When prompted, pick where to save the final video.</small>
-
-    <div class="bar">
-      <div class="fill" id="fill"></div>
+  <div class="shell">
+    <div class="header">
+      <div>
+        <div class="pill">Multi-downloads · Pick your save folder</div>
+        <h1 class="title">Automatic HLS Downloader</h1>
+        <p class="subtitle">Queue several links at once, watch live progress for each, and choose where the final MP4 is saved.</p>
+      </div>
+      <div class="pill" style="background: rgba(245, 158, 11, 0.14); color: #fcd34d; border-color: rgba(245, 158, 11, 0.35);">Powered by yt-dlp</div>
     </div>
 
-    <p id="status"></p>
+    <div class="actions">
+      <button id="addJob" class="ghost">Add link</button>
+      <button id="downloadAll" class="primary">Download all</button>
+    </div>
+
+    <div class="settings">
+      <div class="settings-row">
+        <span class="settings-label">Default download area</span>
+        <span id="dirStatus" class="settings-note"></span>
+      </div>
+      <div class="settings-row">
+        <input id="downloadDir" class="url-input compact-input" placeholder="/Users/you/Downloads/hls">
+        <button id="chooseDir" class="ghost small">Choose folder</button>
+        <button id="saveDir" class="ghost small">Use typed path</button>
+      </div>
+      <div class="settings-note">Pick a folder (best), or enter a path. If unsupported by your browser, the typed path is used.</div>
+    </div>
+
+    <div id="queue" class="queue"></div>
+    <div class="hint">Tip: Downloads save automatically to the folder above. Keep this tab open while jobs run.</div>
   </div>
 
   <script>
-    const progressSource = new EventSource("/progress");
+    (() => {
+      const queueEl = document.getElementById("queue");
+      const addJobBtn = document.getElementById("addJob");
+      const downloadAllBtn = document.getElementById("downloadAll");
+      const dirInput = document.getElementById("downloadDir");
+      const saveDirBtn = document.getElementById("saveDir");
+      const chooseDirBtn = document.getElementById("chooseDir");
+      const dirStatus = document.getElementById("dirStatus");
 
-    progressSource.onmessage = event => {
-      const percent = parseFloat(event.data);
-      if (!isNaN(percent)) {
-        document.getElementById("fill").style.width = percent + "%";
-        document.getElementById("status").textContent = `Downloading… ${percent}%`;
-      }
-    };
+      const jobs = new Map();
+      let jobCounter = 0;
 
-    async function download() {
-      document.getElementById("fill").style.width = "0%";
-      document.getElementById("status").textContent = "Detecting stream…";
+      const STORAGE_KEY = "hls-default-download-dir";
+      let defaultDownloadDir = localStorage.getItem(STORAGE_KEY) || "";
+      let dirHandle = null;
+      let dirHandleName = "";
 
-      const statusEl = document.getElementById("status");
-      statusEl.textContent = "Choose where to save…";
+      const uid = () => `job-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 7)}`;
 
-      // Ask the user where they want to save the file (Chromium browsers only).
-      let fileHandle = null;
-      if (window.showSaveFilePicker) {
+      const renderDirStatus = () => {
+        if (dirHandle) {
+          dirStatus.textContent = `Saving to chosen folder: ${dirHandleName}`;
+          return;
+        }
+        dirStatus.textContent = defaultDownloadDir
+          ? `Saving to: ${defaultDownloadDir}`
+          : "Saving to the app folder";
+      };
+
+      dirInput.value = defaultDownloadDir;
+      renderDirStatus();
+
+      saveDirBtn.addEventListener("click", () => {
+        dirHandle = null;
+        dirHandleName = "";
+        defaultDownloadDir = dirInput.value.trim();
+        localStorage.setItem(STORAGE_KEY, defaultDownloadDir);
+        renderDirStatus();
+      });
+
+      chooseDirBtn.addEventListener("click", async () => {
+        if (!window.showDirectoryPicker) {
+          alert("Your browser does not support picking a folder. Please type the path instead.");
+          return;
+        }
         try {
-          fileHandle = await window.showSaveFilePicker({
-            suggestedName: "video.mp4",
-            types: [{ description: "MP4 Video", accept: { "video/mp4": [".mp4"] } }]
-          });
-        } catch (err) {
-          if (err.name === "AbortError") {
-            statusEl.textContent = "Save cancelled.";
+          const handle = await window.showDirectoryPicker();
+          const hasPerm = await verifyPermission(handle, true);
+          if (!hasPerm) {
+            alert("Permission denied for that folder.");
             return;
           }
+          dirHandle = handle;
+          dirHandleName = handle.name || "selected folder";
+          dirInput.value = dirHandleName ? `/${dirHandleName}` : "Selected folder";
+          defaultDownloadDir = "";
+          localStorage.setItem(STORAGE_KEY, "");
+          renderDirStatus();
+        } catch (err) {
+          if (err && err.name === "AbortError") return;
+          console.error(err);
+          alert("Could not pick that folder. Try again or type a path.");
+        }
+      });
+
+      addJobBtn.addEventListener("click", () => addJob());
+      downloadAllBtn.addEventListener("click", () => {
+        jobs.forEach(job => {
+          if (!job.active && job.input.value.trim()) {
+            startDownload(job);
+          }
+        });
+      });
+
+      function addJob(initialUrl = "") {
+        const id = uid();
+        jobCounter += 1;
+
+        const card = document.createElement("div");
+        card.className = "job-card";
+        card.dataset.id = id;
+        card.innerHTML = `
+          <div class="job-top">
+            <input class="url-input url-field" placeholder="Paste video page URL">
+            <input class="url-input compact-input name-field" placeholder="Optional file name (no extension)">
+            <button class="ghost small" data-action="download">Download</button>
+          </div>
+          <div class="progress-track">
+            <div class="progress-fill"></div>
+          </div>
+          <div class="job-meta">
+            <span class="status">Idle — waiting for URL</span>
+            <span class="tag">#${jobCounter}</span>
+            <button class="ghost small cross-btn" data-action="cross">Delete</button>
+          </div>
+        `;
+
+        const job = {
+          id,
+          card,
+          input: card.querySelector(".url-field"),
+          nameInput: card.querySelector(".name-field"),
+          statusEl: card.querySelector(".status"),
+          fillEl: card.querySelector(".progress-fill"),
+          button: card.querySelector("[data-action=\"download\"]"),
+          crossBtn: card.querySelector("[data-action=\"cross\"]"),
+          source: null,
+          active: false,
+          crossed: false,
+          done: false
+        };
+
+        job.input.value = initialUrl;
+        job.button.addEventListener("click", () => startDownload(job));
+        job.crossBtn.addEventListener("click", () => {
+          if (!job.done || job.crossed) return;
+          job.crossed = true;
+          job.card.classList.add("crossed");
+          job.crossBtn.disabled = true;
+        });
+        job.crossBtn.disabled = true;
+        jobs.set(id, job);
+        queueEl.appendChild(card);
+        return job;
+      }
+
+      function setProgress(job, value) {
+        const clamped = Math.max(0, Math.min(100, Number(value) || 0));
+        job.fillEl.style.width = clamped + "%";
+      }
+
+      function setStatus(job, text, tone) {
+        job.statusEl.textContent = text;
+        job.statusEl.classList.remove("active", "done", "error");
+        if (tone) job.statusEl.classList.add(tone);
+      }
+
+      async function verifyPermission(handle, write) {
+        if (!handle) return false;
+        const opts = { mode: write ? "readwrite" : "read" };
+        if (await handle.queryPermission(opts) === "granted") return true;
+        if (await handle.requestPermission(opts) === "granted") return true;
+        return false;
+      }
+
+      function cleanupStream(job) {
+        if (job.source) {
+          job.source.close();
+          job.source = null;
         }
       }
 
-      statusEl.textContent = "Detecting stream…";
-
-      const res = await fetch("/download", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          url: document.getElementById("url").value
-        })
-      });
-
-      if (!res.ok) {
-        statusEl.textContent = "Failed.";
-        return;
+      function ensureMp4Name(name) {
+        if (!name) return null;
+        return name.toLowerCase().endsWith(".mp4") ? name : `${name}.mp4`;
       }
 
-      const disposition = res.headers.get("Content-Disposition");
-      const parsedName = (() => {
-        if (!disposition) return null;
+      function parseFileNameFromHeaders(res, fallback = "video.mp4") {
+        const disposition = res.headers.get("Content-Disposition");
+        if (!disposition) return fallback;
         const utfMatch = disposition.match(/filename\*=UTF-8''([^;]+)/i);
         if (utfMatch && utfMatch[1]) return decodeURIComponent(utfMatch[1]);
         const match = disposition.match(/filename=\"?([^\";]+)\"?/i);
-        return match ? match[1] : null;
-      })();
-      const fileName = parsedName || "video.mp4";
+        return match ? match[1] : fallback;
+      }
 
-      let savedWithPicker = false;
+      async function saveStreamToDir(res, fileName) {
+        if (!dirHandle) throw new Error("No folder selected");
+        const fileHandle = await dirHandle.getFileHandle(fileName, { create: true });
+        const writable = await fileHandle.createWritable();
+        const reader = res.body?.getReader();
+        if (!reader) {
+          await writable.close();
+          throw new Error("No response stream");
+        }
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) break;
+          if (value) await writable.write(value);
+        }
+        await writable.close();
+      }
 
-      if (fileHandle) {
-        const streamResponse = res.clone();
-        try {
-          const writable = await fileHandle.createWritable();
-          if (streamResponse.body) {
-            await streamResponse.body.pipeTo(writable);
-          } else {
-            await writable.write(await streamResponse.blob());
-            await writable.close();
+      async function startDownload(job) {
+        if (job.active) return;
+
+        const url = job.input.value.trim();
+        if (!url) {
+          setStatus(job, "Add a URL first.", "error");
+          return;
+        }
+
+        job.done = false;
+        job.crossed = false;
+        job.card.classList.remove("crossed");
+        job.crossBtn.disabled = true;
+
+        job.active = true;
+        setProgress(job, 0);
+        setStatus(job, "Starting download…", "active");
+
+        const usingDirHandle = !!dirHandle;
+        if (usingDirHandle) {
+          const hasPerm = await verifyPermission(dirHandle, true);
+          if (!hasPerm) {
+            setStatus(job, "Permission denied for the selected folder.", "error");
+            job.active = false;
+            return;
           }
-          savedWithPicker = true;
-          statusEl.textContent = "Saved to your chosen folder.";
+        }
+
+        cleanupStream(job);
+        job.source = new EventSource(`/progress?jobId=${encodeURIComponent(job.id)}`);
+        job.source.onmessage = event => {
+          try {
+          const payload = JSON.parse(event.data);
+          if (payload.jobId !== job.id) return;
+          if (typeof payload.progress !== "undefined") {
+            setProgress(job, payload.progress);
+          }
         } catch (err) {
-          console.error("Saving via picker failed", err);
-          statusEl.textContent = "Save failed, falling back to browser download…";
+          // Ignore malformed events
+        }
+      };
+
+        try {
+          const res = await fetch("/download", {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              "Accept": usingDirHandle ? "application/octet-stream" : "application/json"
+            },
+            body: JSON.stringify({
+              url,
+              jobId: job.id,
+              downloadDir: usingDirHandle ? undefined : defaultDownloadDir,
+              filename: job.nameInput.value.trim() || undefined,
+              streamToClient: usingDirHandle
+            })
+          });
+
+          if (!res.ok) {
+            throw new Error("Download failed");
+          }
+
+          if (usingDirHandle) {
+            const requestedName = ensureMp4Name(job.nameInput.value.trim());
+            const fileName = requestedName || parseFileNameFromHeaders(res, "video.mp4");
+            await saveStreamToDir(res, fileName);
+            setProgress(job, 100);
+            setStatus(job, `Saved to selected folder (${fileName})`, "done");
+            job.done = true;
+            job.crossBtn.disabled = false;
+          } else {
+            const data = await res.json();
+            if (!data || !data.ok) {
+              throw new Error(data && data.error ? data.error : "Download failed");
+            }
+
+            setProgress(job, 100);
+            const savedPath = data.savedPath || defaultDownloadDir || "app folder";
+            setStatus(job, `Saved to ${savedPath}`, "done");
+            job.done = true;
+            job.crossBtn.disabled = false;
+          }
+        } catch (err) {
+          console.error(err);
+          setStatus(job, "Failed. Please check the folder path and try again.", "error");
+        } finally {
+          cleanupStream(job);
+          job.active = false;
         }
       }
 
-      if (!savedWithPicker) {
-        const blob = await res.blob();
-        const a = document.createElement("a");
-        a.href = URL.createObjectURL(blob);
-        a.download = fileName;
-        a.click();
-        setTimeout(() => URL.revokeObjectURL(a.href), 1000);
-        statusEl.textContent = "Done.";
-      }
-    }
+      // Seed with one empty row
+      addJob();
+    })();
   </script>
 </body>
 </html>
