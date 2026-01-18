@@ -14,7 +14,7 @@ It includes **setup, installation, usage, and full code**.
 
 # Automatic HLS Video Downloader (macOS)
 
-A local web application that **automatically detects and downloads HLS (HTTP Live Streaming) videos** from approved websites and saves them as a single `.mp4` file.
+A local web application that **automatically detects and downloads HLS (HTTP Live Streaming) videos** from approved websites and saves them as a single `.mp4` file. This works for almost any site!
 
 This project is intended for **educational use** and works only with **non-DRM HLS streams**.
 
@@ -295,10 +295,11 @@ app.listen(PORT, () => {
 </head>
 <body>
   <div class="box">
-    <h2>Automatic HLS Video Downloader</h2>
+    <h2>Automatic HLS Downloader</h2>
 
     <input id="url" placeholder="Paste video page URL here">
     <button onclick="download()">Download</button>
+    <small style="color:#94a3b8;display:block;margin-top:6px;">When prompted, pick where to save the final video.</small>
 
     <div class="bar">
       <div class="fill" id="fill"></div>
@@ -322,6 +323,27 @@ app.listen(PORT, () => {
       document.getElementById("fill").style.width = "0%";
       document.getElementById("status").textContent = "Detecting stream…";
 
+      const statusEl = document.getElementById("status");
+      statusEl.textContent = "Choose where to save…";
+
+      // Ask the user where they want to save the file (Chromium browsers only).
+      let fileHandle = null;
+      if (window.showSaveFilePicker) {
+        try {
+          fileHandle = await window.showSaveFilePicker({
+            suggestedName: "video.mp4",
+            types: [{ description: "MP4 Video", accept: { "video/mp4": [".mp4"] } }]
+          });
+        } catch (err) {
+          if (err.name === "AbortError") {
+            statusEl.textContent = "Save cancelled.";
+            return;
+          }
+        }
+      }
+
+      statusEl.textContent = "Detecting stream…";
+
       const res = await fetch("/download", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -331,17 +353,49 @@ app.listen(PORT, () => {
       });
 
       if (!res.ok) {
-        document.getElementById("status").textContent = "Failed.";
+        statusEl.textContent = "Failed.";
         return;
       }
 
-      const blob = await res.blob();
-      const a = document.createElement("a");
-      a.href = URL.createObjectURL(blob);
-      a.download = "video.mp4";
-      a.click();
+      const disposition = res.headers.get("Content-Disposition");
+      const parsedName = (() => {
+        if (!disposition) return null;
+        const utfMatch = disposition.match(/filename\*=UTF-8''([^;]+)/i);
+        if (utfMatch && utfMatch[1]) return decodeURIComponent(utfMatch[1]);
+        const match = disposition.match(/filename=\"?([^\";]+)\"?/i);
+        return match ? match[1] : null;
+      })();
+      const fileName = parsedName || "video.mp4";
 
-      document.getElementById("status").textContent = "Done.";
+      let savedWithPicker = false;
+
+      if (fileHandle) {
+        const streamResponse = res.clone();
+        try {
+          const writable = await fileHandle.createWritable();
+          if (streamResponse.body) {
+            await streamResponse.body.pipeTo(writable);
+          } else {
+            await writable.write(await streamResponse.blob());
+            await writable.close();
+          }
+          savedWithPicker = true;
+          statusEl.textContent = "Saved to your chosen folder.";
+        } catch (err) {
+          console.error("Saving via picker failed", err);
+          statusEl.textContent = "Save failed, falling back to browser download…";
+        }
+      }
+
+      if (!savedWithPicker) {
+        const blob = await res.blob();
+        const a = document.createElement("a");
+        a.href = URL.createObjectURL(blob);
+        a.download = fileName;
+        a.click();
+        setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+        statusEl.textContent = "Done.";
+      }
     }
   </script>
 </body>
